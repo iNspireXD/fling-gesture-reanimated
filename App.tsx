@@ -60,12 +60,6 @@ function Card({
         // 3rd item - opacity 1 - 2/6 = 0.66,
         // and so on
       ),
-      shadowOpacity: interpolate(
-        activeIndex.value,
-        [index - 1, index, index + 1],
-        [0, 0, 1],
-        { extrapolateRight: Extrapolate.CLAMP }
-      ),
       transform: [
         {
           translateY: interpolate(
@@ -131,14 +125,18 @@ export default function App() {
   const flingUp = Gesture.Fling()
     .direction(Directions.UP)
     .onStart(() => {
-      if (activeIndex.value === 0) return;
+      if (activeIndex.value === 0) {
+        return;
+      }
       activeIndex.value = withTiming(activeIndex.value - 1, { duration });
     });
 
   const flingDown = Gesture.Fling()
     .direction(Directions.DOWN)
     .onStart(() => {
-      if (activeIndex.value === data.length) return;
+      if (activeIndex.value === data.length) {
+        return;
+      }
       activeIndex.value = withTiming(activeIndex.value + 1, {
         duration,
       });
@@ -187,13 +185,6 @@ const styles = StyleSheet.create({
     height: layout.height,
     padding: layout.spacing,
     backgroundColor: colors.light,
-    shadowColor: colors.dark,
-    shadowRadius: 10,
-    shadowOpacity: 1,
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
   },
   title: { fontSize: 32, fontWeight: "600" },
   subtitle: {},
