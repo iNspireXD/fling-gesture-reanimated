@@ -3,8 +3,20 @@ import { Dimensions, Image, StyleSheet, Text, View } from "react-native";
 
 import { Entypo } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  GestureHandlerRootView,
+  Gesture,
+  Directions,
+  GestureDetector,
+} from "react-native-gesture-handler";
 import data, { locationImage } from "./data";
+import Animated, {
+  Extrapolate,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 const { width } = Dimensions.get("window");
 const duration = 300;
@@ -27,14 +39,55 @@ const colors = {
 function Card({
   info,
   index,
+  activeIndex,
   totalLength,
 }: {
   totalLength: number;
   index: number;
+  activeIndex: Animated.SharedValue<number>;
   info: (typeof data)[0];
 }) {
+  const rstyle = useAnimatedStyle(() => {
+    return {
+      position: "absolute",
+      zIndex: totalLength - index,
+      opacity: interpolate(
+        activeIndex.value,
+        [index - 1, index, index + 1],
+        [1 - 1 / maxVisibleItems, 1, 1]
+        // 1st item - opacity 1
+        // 2nd item - opacity 1 - 1/6 = 0.83,
+        // 3rd item - opacity 1 - 2/6 = 0.66,
+        // and so on
+      ),
+      shadowOpacity: interpolate(
+        activeIndex.value,
+        [index - 1, index, index + 1],
+        [0, 0, 1],
+        { extrapolateRight: Extrapolate.CLAMP }
+      ),
+      transform: [
+        {
+          translateY: interpolate(
+            activeIndex.value,
+            [index - 1, index, index + 1],
+            [-layout.cardsGap, 0, layout.height - layout.cardsGap]
+
+            // { extrapolateRight: Extrapolate.CLAMP }
+          ),
+        },
+        {
+          scale: interpolate(
+            activeIndex.value,
+            [index - 1, index, index + 1],
+            [0.96, 1, 1]
+          ),
+        },
+      ],
+    };
+  });
   return (
-    <View style={[styles.card]}>
+    <Animated.View style={[styles.card, rstyle]}>
       <Text
         style={[
           styles.title,
@@ -68,34 +121,55 @@ function Card({
         </View>
       </View>
       <Image source={{ uri: locationImage }} style={styles.locationImage} />
-    </View>
+    </Animated.View>
   );
 }
 
 export default function App() {
+  const activeIndex = useSharedValue(0);
+
+  const flingUp = Gesture.Fling()
+    .direction(Directions.UP)
+    .onStart(() => {
+      if (activeIndex.value === 0) return;
+      activeIndex.value = withTiming(activeIndex.value - 1, { duration });
+    });
+
+  const flingDown = Gesture.Fling()
+    .direction(Directions.DOWN)
+    .onStart(() => {
+      if (activeIndex.value === data.length) return;
+      activeIndex.value = withTiming(activeIndex.value + 1, {
+        duration,
+      });
+    });
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <StatusBar hidden />
-      <View
-        style={{
-          alignItems: "center",
-          flex: 1,
-          justifyContent: "flex-end",
-          marginBottom: layout.cardsGap * 2,
-        }}
-        pointerEvents="box-none"
-      >
-        {data.slice(0, 1).map((c, index) => {
-          return (
-            <Card
-              info={c}
-              key={c.id}
-              index={index}
-              totalLength={data.length - 1}
-            />
-          );
-        })}
-      </View>
+      <GestureDetector gesture={Gesture.Exclusive(flingUp, flingDown)}>
+        <View
+          style={{
+            alignItems: "center",
+            flex: 1,
+            justifyContent: "flex-end",
+            marginBottom: layout.cardsGap * 2,
+          }}
+          pointerEvents="box-none"
+        >
+          {data.map((c, index) => {
+            return (
+              <Card
+                info={c}
+                key={c.id}
+                index={index}
+                activeIndex={activeIndex}
+                totalLength={data.length - 1}
+              />
+            );
+          })}
+        </View>
+      </GestureDetector>
     </GestureHandlerRootView>
   );
 }
@@ -113,6 +187,13 @@ const styles = StyleSheet.create({
     height: layout.height,
     padding: layout.spacing,
     backgroundColor: colors.light,
+    shadowColor: colors.dark,
+    shadowRadius: 10,
+    shadowOpacity: 1,
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
   },
   title: { fontSize: 32, fontWeight: "600" },
   subtitle: {},
